@@ -1,5 +1,6 @@
 package dev.sixik.isf.client;
 
+import dev.sixik.isf.client.widgets.IconButton;
 import dev.sixik.isf.network.IsfNetwork;
 import dev.sixik.isf.definition.IsfCatalystDefinition;
 import dev.sixik.isf.definition.IsfRecipeDefinition;
@@ -11,6 +12,7 @@ import dev.sixik.unigui.api.event.PointerEnteredEvent;
 import dev.sixik.unigui.api.event.PointerExitedEvent;
 import dev.sixik.unigui.api.layout.Justify;
 import dev.sixik.unigui.api.layout.LayoutContext;
+import dev.sixik.unigui.api.layout.LayoutStyle;
 import dev.sixik.unigui.api.layout.PositionType;
 import dev.sixik.unigui.backend.minecraft_impl.MinecraftRenderLayerRegistration;
 import dev.sixik.unigui.backend.minecraft_impl.MinecraftWidgetRenderLayer;
@@ -112,6 +114,7 @@ final class IsfBrowserOverlay {
     private double pointerY = -1.0;
     /** Запрос (R/U), которым открыто текущее окно; null — окно открыто кликом по каталогу. */
     private PendingRecipeQuery selectedQuery;
+    private LayoutStyle tempStyle;
 
     private static final float RECIPE_GAP = 2.0f;
     private static final float CATALYST_CELL = 18.0f;
@@ -484,21 +487,22 @@ final class IsfBrowserOverlay {
         Box panel = browserPanel;
         panel.layout(style -> style
                 .position(PositionType.ABSOLUTE)
-                .right(8.0f)
-                .top(8.0f)
-                .size(176.0f, 200.0f)
-                .padding(4.0f));
-
+                .right(2.0f)
+        );
+        tempStyle = panel.layoutStyle().copy();
         VBox column = new VBox();
         column.spacing(2.0f);
-        column.layout(style -> style.fill());
 
         grid.spacing(0.0f);
         grid.layout(style -> style.widthPercent(100.0f).flexNone());
+
         itemScroll.scrollStep(18.0f);
-        itemScroll.layout(style -> style.widthPercent(100.0f).flexGrow(1.0f).flexShrink(1.0f));
+        itemScroll.scrollbarGap(1);
 
         column.addChild(itemScroll);
+        panel.borderVisible(false);
+        panel.backgroundVisible(false);
+       // panel.background().set(1,1,1,0);
         panel.addChild(column);
         contentRoot.addChild(panel);
 
@@ -511,8 +515,8 @@ final class IsfBrowserOverlay {
         Box panel = bookmarkPanel;
         panel.layout(style -> style.position(PositionType.ABSOLUTE)
                 .left(8.0f).top(8.0f).size(96.0f, 200.0f).padding(4.0f));
-        Label title = new Label("BOOKMARKS");
-        title.layout(style -> style.size(88.0f, 14.0f).flexNone());
+        panel.backgroundVisible(false);
+        panel.borderVisible(false);
         bookmarkGrid.spacing(0.0f);
         bookmarkGrid.layout(style -> style.widthPercent(100.0f).flexNone());
         bookmarkScroll.scrollStep(CELL);
@@ -520,7 +524,6 @@ final class IsfBrowserOverlay {
         VBox column = new VBox();
         column.spacing(2.0f);
         column.layout(style -> style.fill());
-        column.addChild(title);
         column.addChild(bookmarkScroll);
         panel.addChild(column);
         contentRoot.addChild(panel);
@@ -780,13 +783,14 @@ final class IsfBrowserOverlay {
     }
 
     private Button itemCell(ItemEntry entry) {
-        Button cell = new Button();
+        Button cell = new IconButton();
         cell.textPadding(0.0f, 0.0f);
         cell.layout(style -> style.size(CELL, CELL).flexNone());
         cell.on(PointerEnteredEvent.TYPE, event -> hoveredEntry = entry);
         cell.on(PointerExitedEvent.TYPE, event -> {
             if (hoveredEntry == entry) hoveredEntry = null;
         });
+
         // ЛКМ по клетке = R: открываем из кэша и запрашиваем разблокировку на сервере,
         // иначе предметы, которые ещё ни разу не открывали, выглядели бы «без рецептов».
         cell.onClick(event -> showRecipes(entry.id(), false));
@@ -1283,15 +1287,15 @@ final class IsfBrowserOverlay {
             if (!(screen instanceof AbstractContainerScreen<?> container)) return;
             int width = screen.width;
             int height = screen.height;
-            int margin = 8;
+            int margin = 4;
             int guiLeft = container.getGuiLeft();
             int guiRight = Math.min(width - margin, guiLeft + imageWidth(container));
             int leftWidth = Math.max(0, guiLeft - margin * 2);
             int rightX = Math.min(width - margin, guiRight + margin);
             int rightWidth = Math.max(0, width - rightX - margin);
             int panelHeight = Math.max(0, height - margin * 2);
-            bookmarkPanel.layout(style -> style.left(margin).top(margin).size(leftWidth, panelHeight));
-            browserPanel.layout(style -> style.left(rightX).top(margin).size(rightWidth, panelHeight));
+            bookmarkPanel.layout(style -> style.left(tempStyle.right().value()).top(margin).size(leftWidth, panelHeight));
+            browserPanel.layout(style -> style.left(rightX).right(tempStyle.right().value()).top(margin).bottom(margin).flexGrow(1));
 
             float itemContentWidth = Math.max(0.0f,
                     rightWidth - PANEL_PADDING * 2.0f

@@ -29,7 +29,8 @@ configurations {
     }
     compileClasspath.extendsFrom uniguiForge
     runtimeClasspath.extendsFrom uniguiForge
-    developmentForge.extendsFrom uniguiForge
+    // NOTE: do NOT extend developmentForge — Architectury Transformer already injects
+    // unigui-forge-dev.jar at runtime; adding it again causes split package in JPMS
 }
 
 sourceSets {
