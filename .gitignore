@@ -136,3 +136,4 @@ profile-2916-2916___dev.architectury.transformer.Tran.jfr
 *.jfr
 .profileconfig.json
 /net
+gradle.properties

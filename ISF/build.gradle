@@ -22,6 +22,14 @@ configurations {
     compileClasspath.extendsFrom uniguiCommon
     runtimeClasspath.extendsFrom uniguiCommon
     developmentForge.extendsFrom uniguiCommon
+
+    uniguiForge {
+        canBeResolved = true
+        canBeConsumed = false
+    }
+    compileClasspath.extendsFrom uniguiForge
+    runtimeClasspath.extendsFrom uniguiForge
+    developmentForge.extendsFrom uniguiForge
 }
 
 sourceSets {
@@ -37,7 +45,7 @@ dependencies {
     uniguiCommon(project(path: "${versionProject.path}:common", configuration: 'namedElements')) {
         transitive false
     }
-    modImplementation(project(path: "${versionProject.path}:forge", configuration: 'namedElements')) {
+    uniguiForge(project(path: "${versionProject.path}:forge", configuration: 'namedElements')) {
         transitive false
     }
 }
