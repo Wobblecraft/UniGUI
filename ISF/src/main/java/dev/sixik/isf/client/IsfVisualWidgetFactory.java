@@ -26,7 +26,12 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
+import dev.sixik.unigui.api.layout.LayoutContext;
+import dev.sixik.unigui.api.widget.Visibility;
+import dev.sixik.unigui.widgets.containers.LinearBox;
+import dev.sixik.unigui.widgets.core.Orientation;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.List;
 import java.util.Map;
@@ -46,13 +51,22 @@ final class IsfVisualWidgetFactory {
 
     static Widget create(IsfVisualNode visual, Map<String, JsonElement> parameters) {
         if (visual == null) return null;
-        return new IsfVisualWidgetFactory(parameters).createNode(visual);
+        Widget widget = new IsfVisualWidgetFactory(parameters).createNode(visual);
+        if (widget != null) {
+            adaptHeightToChildren(widget);
+        }
+        return widget;
     }
 
     private Widget createNode(IsfVisualNode node) {
         String widgetId = node.widget().toString().toLowerCase(Locale.ROOT);
         WidgetBase widget = switch (widgetId) {
-            case "unigui:box", "box" -> new Box();
+            case "unigui:box", "box" -> {
+                Box box = new Box();
+                box.borderVisible(false);
+                box.backgroundVisible(false);
+                yield box;
+            }
             case "unigui:hbox", "hbox" -> new HBox();
             case "unigui:vbox", "vbox" -> new VBox();
             case "unigui:grid", "unigui:gridbox", "grid", "gridbox" -> new GridBox();
@@ -227,15 +241,20 @@ final class IsfVisualWidgetFactory {
             if (properties.containsKey("justifyContent")) style.justifyContent(justify(properties.get("justifyContent")));
             if (properties.containsKey("alignSelf")) style.alignSelf(align(properties.get("alignSelf")));
         });
-
-        if (widget instanceof Box box) {
-            if (properties.containsKey("background")) box.background(color(properties.get("background")));
-            if (properties.containsKey("border")) box.border(color(properties.get("border")));
-            if (properties.containsKey("radius")) box.radius(number(properties.get("radius"), 0.0f));
-        }
         if (widget instanceof Label label) {
             if (properties.containsKey("text")) label.text(string(properties.get("text"), ""));
             if (properties.containsKey("color")) label.color(color(properties.get("color")));
+        }
+        if (widget instanceof Box box) {
+            if (properties.containsKey("background")) {
+                box.backgroundVisible(false);
+            }
+            if (properties.containsKey("border")) {
+                box.borderVisible(false);
+            }
+            if (properties.containsKey("radius")) {
+                box.radius(number(properties.get("radius"), 0.0f));
+            }
         }
         if (widget instanceof HBox hbox && properties.containsKey("spacing")) {
             hbox.spacing(number(properties.get("spacing"), 0.0f));
@@ -328,5 +347,133 @@ final class IsfVisualWidgetFactory {
         } catch (IllegalArgumentException ignored) {
             return Justify.START;
         }
+    }
+
+    public static float adaptHeightToChildren(Widget widget) {
+        if (widget == null) return 0.0f;
+        flushWidgetTree(widget);
+        return computeAndApplyAdaptedHeight(widget);
+    }
+
+    public static void flushWidgetTree(Widget widget) {
+        if (widget instanceof PanelWidget panel) {
+            panel.applyQueuedMutations();
+            for (Widget child : panel.children()) {
+                flushWidgetTree(child);
+            }
+        }
+    }
+
+    private static float computeAndApplyAdaptedHeight(Widget widget) {
+        if (widget == null || widget.visibility() == Visibility.COLLAPSED) return 0.0f;
+
+        if (!(widget instanceof PanelWidget panel)) {
+            float h = widget.desiredSize().height();
+            if (h <= 0.0f && widget instanceof WidgetBase base && !base.layoutStyle().height().isAuto()) {
+                h = base.layoutStyle().height().value();
+            }
+            return Math.max(0.0f, h);
+        }
+
+        List<Widget> children = panel.children();
+        if (children.isEmpty()) {
+            float h = panel.desiredSize().height();
+            if (h <= 0.0f && !panel.layoutStyle().height().isAuto()) {
+                h = panel.layoutStyle().height().value();
+            }
+            return Math.max(0.0f, h);
+        }
+
+        for (Widget child : children) {
+            if (child.visibility() != Visibility.COLLAPSED) {
+                computeAndApplyAdaptedHeight(child);
+            }
+        }
+
+        float containerWidth = panel.layoutStyle().width().value();
+        if (containerWidth <= 0.0f) containerWidth = 176.0f;
+        float padH = panel.layoutStyle().padding().horizontal();
+        float padV = panel.layoutStyle().padding().vertical();
+        LayoutContext childContext = new LayoutContext(Math.max(0.0f, containerWidth - padH), 4096.0f);
+
+        float contentHeight;
+        if (panel instanceof LinearBox linear) {
+            boolean isVertical = linear.orientation() == Orientation.VERTICAL;
+            float sum = 0.0f;
+            float max = 0.0f;
+            int visibleCount = 0;
+            for (Widget child : children) {
+                if (child.visibility() == Visibility.COLLAPSED) continue;
+                try {
+                    child.measure(childContext);
+                } catch (RuntimeException ignored) {
+                }
+                float h = child.desiredSize().height() + child.layoutConstraints().margin().vertical();
+                sum += h;
+                max = Math.max(max, h);
+                visibleCount++;
+            }
+            if (isVertical) {
+                float gaps = Math.max(0, visibleCount - 1) * linear.spacing();
+                contentHeight = sum + gaps;
+            } else {
+                contentHeight = max;
+            }
+        } else if (panel instanceof GridBox grid) {
+            int cols = Math.max(1, grid.columns());
+            int visibleIndex = 0;
+            Map<Integer, Float> rowHeights = new HashMap<>();
+            for (Widget child : children) {
+                if (child.visibility() == Visibility.COLLAPSED) continue;
+                try {
+                    child.measure(childContext);
+                } catch (RuntimeException ignored) {
+                }
+                float h = child.desiredSize().height() + child.layoutConstraints().margin().vertical();
+                int row = visibleIndex / cols;
+                rowHeights.put(row, Math.max(rowHeights.getOrDefault(row, 0.0f), h));
+                visibleIndex++;
+            }
+            int totalRows = (visibleIndex + cols - 1) / cols;
+            float sum = 0.0f;
+            for (float rh : rowHeights.values()) {
+                sum += rh;
+            }
+            float gaps = Math.max(0, totalRows - 1) * grid.verticalSpacing();
+            contentHeight = sum + gaps;
+        } else {
+            float maxBottom = 0.0f;
+            for (Widget child : children) {
+                if (child.visibility() == Visibility.COLLAPSED) continue;
+                try {
+                    child.measure(childContext);
+                } catch (RuntimeException ignored) {
+                }
+                float h = child.desiredSize().height() + child.layoutConstraints().margin().vertical();
+                float top = 0.0f;
+                if (child instanceof WidgetBase base && !base.layoutStyle().top().isAuto()) {
+                    top = base.layoutStyle().top().value();
+                }
+                maxBottom = Math.max(maxBottom, top + h);
+            }
+            contentHeight = maxBottom;
+        }
+
+        float adapted = contentHeight + padV;
+        if (!panel.layoutStyle().minHeight().isAuto()) {
+            adapted = Math.max(panel.layoutStyle().minHeight().value(), adapted);
+        }
+        if (!panel.layoutStyle().maxHeight().isAuto()) {
+            adapted = Math.min(panel.layoutStyle().maxHeight().value(), adapted);
+        }
+        final float targetHeight = adapted;
+        if (targetHeight > 0.0f) {
+            panel.layout(style -> style.height(targetHeight));
+            try {
+                panel.measure(new LayoutContext(containerWidth, 4096.0f));
+            } catch (RuntimeException ignored) {
+            }
+        }
+        return targetHeight;
     }
 }

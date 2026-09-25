@@ -261,8 +261,8 @@ public final class VanillaRecipeTypeSupports {
 
     private static IsfVisualNode craftingVisual() {
         return rootVisual(new IsfVisualNode("body", id("unigui:hbox"), Map.of(
-                "padding", literal(12),
-                "spacing", literal(10),
+                "padding", literal(4),
+                "spacing", literal(4),
                 "alignItems", literal("center")), List.of(
                 // Без "columns": ширина сетки выводится из pattern рецепта,
                 // иначе свойства узла перезаписывают форму крафта тройкой колонок.
@@ -278,8 +278,8 @@ public final class VanillaRecipeTypeSupports {
 
     private static IsfVisualNode singleInputVisual() {
         return rootVisual(new IsfVisualNode("body", id("unigui:hbox"), Map.of(
-                "padding", literal(12),
-                "spacing", literal(12),
+                "padding", literal(4),
+                "spacing", literal(4),
                 "alignItems", literal("center")), List.of(
                 new IsfVisualNode("ingredient", id("isf:ingredient_grid"), Map.of(
                         "items", parameter("ingredients"),
@@ -292,8 +292,8 @@ public final class VanillaRecipeTypeSupports {
 
     private static IsfVisualNode smithingVisual() {
         return rootVisual(new IsfVisualNode("body", id("unigui:hbox"), Map.of(
-                "padding", literal(12),
-                "spacing", literal(10),
+                "padding", literal(4),
+                "spacing", literal(4),
                 "alignItems", literal("center")), List.of(
                 new IsfVisualNode("ingredients", id("isf:ingredient_grid"), Map.of(
                         "items", parameter("ingredients"),
@@ -307,7 +307,7 @@ public final class VanillaRecipeTypeSupports {
     private static IsfVisualNode rootVisual(IsfVisualNode body) {
         return new IsfVisualNode("root", id("unigui:box"), Map.of(
                 "width", literal(176),
-                "height", literal(92),
+                "height", literal(80),
                 "background", literal("#11151DEB"),
                 "border", literal("#6A8FAEFF"),
                 "radius", literal(3)), List.of(body));
